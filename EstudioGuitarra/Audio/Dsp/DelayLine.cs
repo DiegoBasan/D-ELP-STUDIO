@@ -32,9 +32,13 @@ public sealed class DelayLine
         double readPos = _writePos - delaySamples;
         while (readPos < 0) readPos += _buffer.Length;
 
-        int i0 = (int)readPos;
+        // Salvaguarda: con delaySeconds cambiando en tiempo real (chorus/phaser modulados por LFO),
+        // el redondeo de punto flotante puede dejar readPos infinitesimalmente negativo justo antes
+        // de esta suma; al sumar _buffer.Length ese resto minúsculo se pierde por precision y readPos
+        // puede terminar dando exactamente _buffer.Length (fuera de rango). Se recorta explicitamente.
+        int i0 = Math.Clamp((int)readPos, 0, _buffer.Length - 1);
         int i1 = (i0 + 1) % _buffer.Length;
-        double frac = readPos - i0;
+        double frac = Math.Clamp(readPos - i0, 0, 1);
         return (float)(_buffer[i0] * (1 - frac) + _buffer[i1] * frac);
     }
 

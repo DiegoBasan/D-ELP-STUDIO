@@ -307,12 +307,25 @@ async function initDispositivos() {
       salidas.map(d => `<option value="${d.Id}">${d.Nombre}</option>`).join("");
   } catch (e) { /* motor no disponible todavia */ }
 }
+/// Reconstruir el motor en C# (Conectar / SetBajaLatencia) arma una cadena nueva vacía,
+/// así que hay que reenviarle los pedales y el volumen que ya tenía la interfaz.
+async function resincronizarMotor() {
+  await bridge.ClearPedales();
+  for (const p of state.pedales) {
+    await bridge.AddPedal(p.id, p.tipo, JSON.stringify(p.params));
+    if (p.bypass) await bridge.SetPedalBypass(p.id, true);
+  }
+  if (state.pedales.length) await bridge.ReorderChain(JSON.stringify(state.pedales.map(p => p.id)));
+  await bridge.SetVolumenSalida(state.volumenSalida);
+}
+
 $("btnConectar").onclick = async () => {
   const inId = $("selDispositivoEntrada").value || null;
   const outId = $("selDispositivoSalida").value || null;
   const ok = await bridge.Conectar(inId, outId);
   state.conectado = !!ok;
   actualizarBadgeEntrada();
+  if (state.conectado) await resincronizarMotor();
 };
 
 function actualizarBadgeEntrada() {
@@ -648,11 +661,12 @@ $("rangoVolSalida").addEventListener("input", (e) => {
   $("volSalidaTxt").textContent = state.volumenSalida;
   enviarVolumenSalida();
 });
-$("btnBajaLatencia").onclick = () => {
+$("btnBajaLatencia").onclick = async () => {
   state.bajaLatencia = !state.bajaLatencia;
-  bridge.SetBajaLatencia(state.bajaLatencia);
+  await bridge.SetBajaLatencia(state.bajaLatencia);
   $("btnBajaLatencia").classList.toggle("on", state.bajaLatencia);
   $("btnBajaLatencia").textContent = "Baja latencia: " + (state.bajaLatencia ? "activada" : "desactivada");
+  if (state.conectado) await resincronizarMotor();
 };
 
 /* =====================================================================
