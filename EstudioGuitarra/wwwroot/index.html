@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estudio de guitarra</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+
+  <header class="top">
+    <div class="brand">
+      <div class="brand-mark">E</div>
+      <div>
+        <div class="brand-name">Estudio de guitarra</div>
+        <div class="brand-sub">Arreglo multipista</div>
+      </div>
+    </div>
+
+    <div class="group">
+      <button class="btn danger sm" id="btnRec">Grabar</button>
+      <button class="btn sm" id="btnLoopPlay">Reproducir loop</button>
+      <button class="btn sm" id="btnInicio">Inicio</button>
+      <button class="btn sm" id="btnPararTodo">Parar todo</button>
+    </div>
+
+    <div class="group tempo">
+      <div class="tempo-value">
+        <div class="label">Tempo</div>
+        <div class="row"><span class="num" id="bpmValor">90</span><span class="unit">bpm</span></div>
+      </div>
+      <div class="stepper">
+        <button id="bpmMas">+</button>
+        <button id="bpmMenos">&minus;</button>
+      </div>
+      <button class="btn sm" id="btnTap">Tap</button>
+      <button class="btn sm" id="btnClick">Claqueta</button>
+      <div class="pulsos" id="pulsos"></div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="group" style="border-left:none">
+      <div class="meter-block">
+        <div class="meter-head"><span id="clipTexto">Nivel</span><span class="lvl" id="nivelTexto">-inf dB</span></div>
+        <div class="meter-bars" id="meterBars"></div>
+      </div>
+      <div class="latency-block">
+        <div class="label">Latencia</div>
+        <div class="val" id="latenciaTxt">&mdash;</div>
+      </div>
+      <span class="badge" id="badgeEntrada"><span class="dot"></span><span id="badgeEntradaTxt">sin conectar</span></span>
+      <button class="btn primary sm" id="btnConectar">Conectar entrada</button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <!-- ===================== ASIDE IZQUIERDO ===================== -->
+    <aside class="side">
+
+      <div class="card">
+        <h3>Banda de acompañamiento</h3>
+        <p class="sub">Batería y bajo al tempo del proyecto</p>
+        <button class="toggle-tile" id="btnBanda">Banda</button>
+        <label class="field">Estilo
+          <select id="selEstilo">
+            <option value="rock">Rock</option>
+            <option value="blues">Blues</option>
+            <option value="balada">Balada</option>
+            <option value="funk">Funk</option>
+            <option value="metal">Metal</option>
+          </select>
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <label class="field">Tonalidad<select id="selTonalidad"></select></label>
+          <label class="field">Compás
+            <select id="selCompas">
+              <option value="3">3/4</option>
+              <option value="4" selected>4/4</option>
+              <option value="6">6/8</option>
+            </select>
+          </label>
+        </div>
+        <label class="field">Progresión
+          <select id="selProgresion">
+            <option value="I-IV-V">I – IV – V</option>
+            <option value="blues12">Blues de 12 compases</option>
+            <option value="ii-V-I">ii – V – I</option>
+            <option value="vi-IV-I-V">vi – IV – I – V</option>
+            <option value="pedal">Pedal (un acorde)</option>
+          </select>
+        </label>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface-sunken);border:1px solid var(--border-subtle);border-radius:10px">
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted)">Acorde</span>
+            <span style="font-family:var(--font-mono);font-size:20px;color:var(--text-strong)" id="acordeActual">A</span>
+          </div>
+          <span style="font-family:var(--font-mono);font-size:13px;color:var(--text-muted)"><span id="compasActual">1</span>/<span id="compasesTotal">4</span></span>
+        </div>
+        <label class="slider-row">Batería<input type="range" min="0" max="100" value="70" id="volDrums"></label>
+        <label class="slider-row">Bajo<input type="range" min="0" max="100" value="65" id="volBass"></label>
+        <label class="slider-row">Claqueta<input type="range" min="0" max="100" value="70" id="volClick"></label>
+      </div>
+
+      <div class="card">
+        <h3>Afinador</h3>
+        <p class="sub">Detección por la entrada de audio (procesada en C#)</p>
+        <button class="toggle-tile" id="btnAfinador">Activar afinador</button>
+        <div class="tuner-note">
+          <span class="n" id="notaDetectada">&mdash;</span>
+          <span class="f"><span id="freqDetectada">0</span> Hz</span>
+        </div>
+        <div class="tuner-gauge"><div class="mid"></div><div class="needle" id="agujaAfinador"></div></div>
+        <div id="desvioTexto">Toca una cuerda para afinar</div>
+        <div class="strings-grid" id="cuerdasRef"></div>
+      </div>
+
+      <div class="card">
+        <h3>Sonidos de la banda</h3>
+        <p class="sub">Sustituye la síntesis por tus muestras</p>
+        <div id="muestrasList"></div>
+        <span style="font-size:12px;color:var(--text-muted)">Carga one-shots en WAV, AIFF o MP3.</span>
+        <button class="btn tertiary sm block" id="btnQuitarMuestras">Volver a la síntesis</button>
+      </div>
+
+      <div class="card">
+        <h3>MIDI</h3>
+        <p class="sub">Teclado, pedalera o superficie de control</p>
+        <button class="btn sm block" id="btnMidi">Activar MIDI</button>
+        <div id="midiDisp"></div>
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted)">Última nota</span>
+          <span style="font-family:var(--font-mono);font-size:15px;color:var(--text-strong)" id="midiNota">&mdash;</span>
+        </div>
+        <span style="font-size:12px;color:var(--text-muted)">Las notas suenan por el sintetizador interno, el CC7 mueve el volumen del amplificador y Start/Stop controlan el transporte.</span>
+      </div>
+
+    </aside>
+
+    <!-- ===================== CENTRO ===================== -->
+    <section class="center">
+      <div class="center-toolbar">
+        <span class="title">Arreglo</span>
+        <span class="info" id="infoLoop">0:00 / 0:16</span>
+        <div class="spacer"></div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)">Compensación
+          <input type="range" min="0" max="250" value="60" id="rangoLatenciaComp" style="width:110px">
+          <span style="font-family:var(--font-mono);color:var(--text-body)"><span id="latenciaCompTxt">60</span> ms</span>
+        </label>
+        <span class="info" id="cursorTxt">0:00.0</span>
+        <button class="btn primary sm" id="btnNuevaPista">+ Pista</button>
+        <button class="btn sm" id="btnMedirLatencia">Medir latencia</button>
+        <button class="btn tertiary sm" id="btnVaciarLoop">Vaciar</button>
+        <div class="zoom-group">
+          <button id="zoomMenos">&minus;</button>
+          <span class="zoom-txt" id="zoomTxt">60 px/s</span>
+          <button id="zoomMas">+</button>
+          <button id="masTiempo">+16 s</button>
+        </div>
+        <label class="btn sm" style="cursor:pointer">Importar audio<input type="file" accept="audio/*" multiple id="inputImportar" style="display:none"></label>
+        <button class="btn sm" id="btnExportar">Exportar WAV</button>
+      </div>
+
+      <div class="aviso hidden" id="aviso">
+        <span class="spacer" id="avisoTexto"></span>
+        <button id="btnCerrarAviso">&times;</button>
+      </div>
+
+      <div class="timeline-scroll" id="timelineScroll">
+        <div class="ruler">
+          <div class="head">Compases</div>
+          <div class="marks" id="reglaMarks"></div>
+        </div>
+        <div style="position:relative" id="lanesWrap">
+          <div id="lanesList"></div>
+          <div class="newtrack-row">
+            <div class="l"><button id="btnNuevaPista2">+ Nueva pista</button></div>
+            <div class="r" id="ayudaGrabar">Pulsa «Grabar» o «+ Pista» para empezar a construir el arreglo. La entrada se procesa en C# con latencia mínima; la mezcla y el looper se manejan aquí en la interfaz.</div>
+          </div>
+          <div style="position:absolute;inset:0 0 0 176px;pointer-events:none">
+            <div class="playhead" id="playhead" style="left:0"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="drag-handle" id="dragHandle"><span></span></div>
+      <div class="bottom-panel" id="bottomPanel" style="height:340px">
+        <div class="panel-tabs">
+          <div class="tab-group" id="panelTabs">
+            <button data-tab="analizador" class="on">Analizador</button>
+            <button data-tab="pedalera">Pedalera</button>
+            <button data-tab="diapason">Diapasón</button>
+            <button data-tab="video">Video</button>
+          </div>
+          <div class="spacer"></div>
+        </div>
+        <div class="panel-body">
+
+          <div class="panel-view on" id="viewAnalizador">
+            <div class="spec-wrap">
+              <div class="spec-canvas-box"><canvas id="specCanvas"></canvas></div>
+              <div class="spec-axis" id="specAxis"></div>
+            </div>
+          </div>
+
+          <div class="panel-view" id="viewPedalera">
+            <div class="pedal-toolbar">
+              <span class="info" id="textoCadena">Guitarra → Amplificador</span>
+              <div class="spacer"></div>
+              <button class="btn sm" id="btnAutoCablear">Reordenar en cadena</button>
+              <button class="btn tertiary sm" id="btnVaciarPedalera">Vaciar pedalera</button>
+            </div>
+            <div class="catalogo" id="catalogoPedales"></div>
+            <div class="combos" id="combosPedales"></div>
+            <div class="chain-rack" id="chainRack"></div>
+          </div>
+
+          <div class="panel-view" id="viewDiapason">
+            <div style="display:flex;align-items:flex-end;gap:12px">
+              <label class="field" style="width:120px">Raíz<select id="selRaizDiap"></select></label>
+              <label class="field" style="width:220px">Escala<select id="selEscala"></select></label>
+              <button class="btn sm" id="btnGrados">Ver grados</button>
+            </div>
+            <div class="fret-grid-nums" id="fretNums"></div>
+            <div class="fret-grid" id="fretGrid"></div>
+          </div>
+
+          <div class="panel-view" id="viewVideo">
+            <div class="video-grid">
+              <div class="video-host" id="ytHost"></div>
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <label class="field">Enlace o ID<input type="text" id="ytUrl" placeholder="https://youtu.be/..."></label>
+                <div style="display:flex;gap:8px">
+                  <button class="btn primary sm" id="btnCargarYt">Cargar</button>
+                  <button class="btn sm" id="btnYtPlay">Play / pausa</button>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <button class="btn sm" id="btnMarcarA">A</button>
+                  <button class="btn sm" id="btnMarcarB">B</button>
+                  <button class="btn sm" id="btnToggleAB">Bucle A-B</button>
+                  <span class="info"><span id="marcaA">0:00</span> → <span id="marcaB">0:00</span></span>
+                </div>
+                <label class="slider-row">Velocidad <span id="velTxt">1.0</span>×
+                  <input type="range" min="25" max="150" value="100" id="rangoVelocidad">
+                </label>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ASIDE DERECHO ===================== -->
+    <aside class="side right">
+
+      <div class="card">
+        <h3>Amplificador</h3>
+        <p class="sub">Cadena de proceso en C# (WASAPI, baja latencia)</p>
+        <button class="toggle-tile" id="btnAmp">Encender amplificador</button>
+        <div class="presets" id="presetsAmp"></div>
+        <div id="mandosAmp"></div>
+        <div style="display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid var(--border-subtle)">
+          <button class="btn sm block on" id="btnBajaLatencia">Baja latencia: activada</button>
+          <span style="font-size:12px;color:var(--text-muted)" id="notaMonitor">Motor: WASAPI compartido vía NAudio. La señal en vivo no pasa por el navegador.</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Acordes</h3>
+        <p class="sub">Elige nota, carácter y extensión</p>
+        <label class="field">Nota<select id="selRaizAc"></select></label>
+        <label class="field">Carácter<select id="selFamiliaAc"></select></label>
+        <label class="field">Extensión<select id="selTipoAc"></select></label>
+        <div class="chord-display">
+          <span class="nm" id="nombreAcorde">C</span>
+          <span class="notas" id="notasAcordeTxt">C E G</span>
+        </div>
+        <div class="seq-box" id="textoSecuencia">Sin acordes en la secuencia.</div>
+        <div>
+          <span style="font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted)">Continuaciones</span>
+          <div class="sugerencias" id="sugerenciasAc" style="margin-top:8px"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn sm" id="btnEscuchar">Escuchar</button>
+          <button class="btn sm" id="btnQuitarUltimo">Quitar último</button>
+          <button class="btn tertiary sm" id="btnVaciarSecuencia">Vaciar</button>
+        </div>
+      </div>
+
+    </aside>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
