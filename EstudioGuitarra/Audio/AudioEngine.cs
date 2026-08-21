@@ -252,14 +252,9 @@ public sealed class AudioEngine : IDisposable
         lock (_chainLock) { _chain?.Clear(); }
     }
 
-    public void SetAmpOn(bool on)
+    public void SetVolumenSalida(double vol)
     {
-        lock (_chainLock) { if (_chain != null) _chain.Amp.AmpOn = on; }
-    }
-
-    public void SetAmpParams(double gain, double bass, double mid, double treble, double reverb, double delay, double vol)
-    {
-        lock (_chainLock) { _chain?.Amp.SetParams(gain, bass, mid, treble, reverb, delay, vol); }
+        lock (_chainLock) { _chain?.Salida.SetVolumen(vol); }
     }
 
     // ---------- afinador / medidor ----------

@@ -9,7 +9,7 @@ namespace EstudioGuitarra.Interop;
 /// <summary>
 /// Objeto host expuesto a JavaScript via CoreWebView2.AddHostObjectToScript("audio", ...).
 /// Desde la pagina se llama como:
-///   await chrome.webview.hostObjects.audio.SetAmpOn(true)
+///   await chrome.webview.hostObjects.audio.SetVolumenSalida(70)
 /// Todas las llamadas desde JS son asincronas (devuelven una Promise) aunque el metodo de C#
 /// sea sincrono; por eso aqui no hace falta async/await salvo donde el propio trabajo lo pida.
 /// Los tipos complejos (listas, diccionarios) se pasan como JSON en vez de objetos COM, que es
@@ -49,12 +49,9 @@ public sealed class AudioBridge
 
     public void SetA4(double hz) => _engine.A4 = hz;
 
-    // ---------- amplificador ----------
+    // ---------- volumen de salida ----------
 
-    public void SetAmpOn(bool on) => _engine.SetAmpOn(on);
-
-    public void SetAmpParams(double gain, double bass, double mid, double treble, double reverb, double delay, double vol)
-        => _engine.SetAmpParams(gain, bass, mid, treble, reverb, delay, vol);
+    public void SetVolumenSalida(double vol) => _engine.SetVolumenSalida(vol);
 
     // ---------- pedalera ----------
 

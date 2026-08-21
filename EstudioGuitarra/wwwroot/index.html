@@ -233,6 +233,8 @@
                 </select>
               </label>
               <button class="btn tertiary sm" id="btnLimpiarNotas">Vaciar notas</button>
+              <button class="btn sm" id="btnImportarPiano">Importar piano real (SoundFont)</button>
+              <span class="info" id="estadoPiano"></span>
             </div>
             <div class="pianoroll-scroll" id="pianorollScroll">
               <div class="pianoroll-inner" id="pianorollInner">
@@ -285,10 +287,11 @@
 
       <div class="card">
         <h3>Amplificador</h3>
-        <p class="sub">Cadena de proceso en C# (WASAPI, baja latencia)</p>
-        <button class="toggle-tile" id="btnAmp">Encender amplificador</button>
-        <div class="presets" id="presetsAmp"></div>
-        <div id="mandosAmp"></div>
+        <p class="sub">Volumen de salida — el tono (drive, EQ, delay, reverb) lo dan los pedales de la pedalera</p>
+        <label class="slider-row">
+          <span class="head"><span>Volumen</span><span class="v" id="volSalidaTxt">70</span></span>
+          <input type="range" min="0" max="100" value="70" id="rangoVolSalida">
+        </label>
         <div style="display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid var(--border-subtle)">
           <button class="btn sm block on" id="btnBajaLatencia">Baja latencia: activada</button>
           <span style="font-size:12px;color:var(--text-muted)" id="notaMonitor">Motor: WASAPI compartido vía NAudio. La señal en vivo no pasa por el navegador.</span>
@@ -305,6 +308,7 @@
           <span class="nm" id="nombreAcorde">C</span>
           <span class="notas" id="notasAcordeTxt">C E G</span>
         </div>
+        <div class="chord-diagram" id="diagramaAcorde"></div>
         <div class="seq-box" id="textoSecuencia">Sin acordes en la secuencia.</div>
         <div>
           <span style="font-size:11px;letter-spacing:0.09em;text-transform:uppercase;color:var(--text-muted)">Continuaciones</span>

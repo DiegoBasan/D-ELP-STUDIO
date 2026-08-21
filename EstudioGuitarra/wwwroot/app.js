@@ -22,8 +22,7 @@ const bridgeStub = {
   LatenciaMs: async () => 0,
   SetBajaLatencia: async () => {},
   SetA4: async () => {},
-  SetAmpOn: async () => {},
-  SetAmpParams: async () => {},
+  SetVolumenSalida: async () => {},
   AddPedal: async () => {},
   RemovePedal: async () => {},
   SetPedalParam: async () => {},
@@ -80,15 +79,6 @@ const GRADOS_KEY = [{ g: 0, t: "" }, { g: 2, t: "m" }, { g: 4, t: "m" }, { g: 5,
 const RAMAS = { 0: [5,7,9,2], 2: [7,5,0,9], 4: [9,2,5,7], 5: [0,7,2,9], 7: [0,9,5,2], 9: [2,5,7,4], 11: [0,7,4,9] };
 const NUMERALES = { 0: "I", 2: "ii", 4: "iii", 5: "IV", 7: "V", 9: "vi", 11: "vii" };
 
-const PRESETS = {
-  "Limpio":{gain:12,bass:55,mid:50,treble:60,rev:22,dly:8,vol:70},
-  "Crunch":{gain:45,bass:50,mid:60,treble:55,rev:18,dly:10,vol:60},
-  "Blues":{gain:35,bass:60,mid:65,treble:45,rev:30,dly:14,vol:62},
-  "Lead":{gain:65,bass:45,mid:70,treble:60,rev:35,dly:30,vol:58},
-  "Metal":{gain:88,bass:70,mid:30,treble:70,rev:12,dly:5,vol:55},
-  "Acústica":{gain:5,bass:45,mid:45,treble:70,rev:40,dly:6,vol:75}
-};
-const MANDOS_AMP = [["Ganancia","gain"],["Graves","bass"],["Medios","mid"],["Agudos","treble"],["Delay","dly"],["Reverb","rev"],["Volumen","vol"]];
 const PEDALES = {
   comp:   { nombre:"Compresor", color:"#7fc8a9", k:[["umbral","Umbral",45],["ratio","Ratio",50],["nivel","Nivel",60]] },
   boost:  { nombre:"Booster",   color:"#c8e05f", k:[["nivel","Nivel",55],["tono","Tono",70]] },
@@ -104,11 +94,11 @@ const PEDALES = {
   reverb: { nombre:"Reverb",    color:"#a7d8c0", k:[["tamano","Tamaño",50],["mezcla","Mezcla",35]] }
 };
 const COMBOS = [
-  { nombre:"Blues cristalino", detalle:"Compresor → Overdrive → Reverb", tipos:["comp","od","reverb"], preset:"Blues" },
-  { nombre:"Rock de garaje", detalle:"Booster → Distorsión → Delay", tipos:["boost","dist","delay"], preset:"Crunch" },
-  { nombre:"Funk elástico", detalle:"Compresor → Auto-wah → EQ", tipos:["comp","wah","eq"], preset:"Limpio" },
-  { nombre:"Ambiental", detalle:"Chorus → Delay → Reverb", tipos:["chorus","delay","reverb"], preset:"Limpio" },
-  { nombre:"Muro de metal", detalle:"EQ → Fuzz → Trémolo", tipos:["eq","fuzz","trem"], preset:"Metal" }
+  { nombre:"Blues cristalino", detalle:"Compresor → Overdrive → Reverb", tipos:["comp","od","reverb"] },
+  { nombre:"Rock de garaje", detalle:"Booster → Distorsión → Delay", tipos:["boost","dist","delay"] },
+  { nombre:"Funk elástico", detalle:"Compresor → Auto-wah → EQ", tipos:["comp","wah","eq"] },
+  { nombre:"Ambiental", detalle:"Chorus → Delay → Reverb", tipos:["chorus","delay","reverb"] },
+  { nombre:"Muro de metal", detalle:"EQ → Fuzz → Trémolo", tipos:["eq","fuzz","trem"] }
 ];
 const LANE_COLORES = ["#c8e05f","#FF822F","#6fc6d8","#b98ae0","#e8b95a","#7fc8a9"];
 
@@ -134,7 +124,7 @@ const state = {
   bpm: 90, subdiv: 1, compas: 4, playing: false, pulsoActual: -1,
   bandaOn: false, estilo: "rock", tonalidad: "A", progresion: "I-IV-V", compasActual: 1,
   afinadorOn: false,
-  ampOn: false, preset: "Limpio", amp: { gain:12, bass:55, mid:50, treble:60, rev:22, dly:8, vol:70 },
+  volumenSalida: 70,
   bajaLatencia: true,
   conectado: false,
   pedales: [], // { id, tipo, params }
@@ -146,7 +136,8 @@ const state = {
   raizAc: "C", familiaAc: "mayor", tipoAc: "", secuencia: [],
   muestras: {}, // nombre -> AudioBuffer
   ytPlayer: null, ytA: 0, ytB: 0, ytAB: false,
-  midiGrid: 0.5 // fraccion de negra usada como rejilla en el piano roll
+  midiGrid: 0.5, // fraccion de negra usada como rejilla en el piano roll
+  pianoSamples: null // { "C4": AudioBuffer, ... } una vez importado el soundfont
 };
 
 /* AudioContext local, solo para reproduccion no critica en tiempo real:
@@ -261,35 +252,6 @@ function initCatalogoPedales() {
   });
 }
 
-function initPresetsAmp() {
-  const box = $("presetsAmp");
-  box.innerHTML = "";
-  Object.keys(PRESETS).forEach(nombre => {
-    const b = document.createElement("button");
-    b.textContent = nombre;
-    b.className = state.preset === nombre ? "on" : "";
-    b.onclick = () => aplicarPresetAmp(nombre);
-    box.appendChild(b);
-  });
-}
-
-function initMandosAmp() {
-  const box = $("mandosAmp");
-  box.innerHTML = "";
-  MANDOS_AMP.forEach(([label, key]) => {
-    const row = document.createElement("label");
-    row.className = "slider-row";
-    row.innerHTML = `<span class="head"><span>${label}</span><span class="v" id="ampV_${key}">${state.amp[key]}</span></span>
-      <input type="range" min="0" max="100" value="${state.amp[key]}" id="ampR_${key}">`;
-    box.appendChild(row);
-    row.querySelector("input").addEventListener("input", (e) => {
-      state.amp[key] = Number(e.target.value);
-      $("ampV_" + key).textContent = state.amp[key];
-      state.preset = "";
-      enviarAmpParams();
-    });
-  });
-}
 
 /* =====================================================================
    Header: transporte / tempo / claqueta / entrada / medidor / latencia
@@ -574,8 +536,6 @@ function aplicarCombo(combo) {
     return { id, tipo, params };
   });
   bridge.ReorderChain(JSON.stringify(state.pedales.map(p => p.id)));
-  aplicarPresetAmp(combo.preset);
-  if (!state.ampOn) { state.ampOn = true; bridge.SetAmpOn(true); actualizarBotonAmp(); }
   renderChainRack();
 }
 $("btnAutoCablear").onclick = () => bridge.ReorderChain(JSON.stringify(state.pedales.map(p => p.id)));
@@ -680,31 +640,14 @@ function arrastrarMando(e, pedal, key, knobEl) {
    Amplificador
    ===================================================================== */
 
-function actualizarBotonAmp() {
-  $("btnAmp").classList.toggle("on", state.ampOn);
-  $("btnAmp").textContent = state.ampOn ? "Apagar amplificador" : "Encender amplificador";
+function enviarVolumenSalida() {
+  bridge.SetVolumenSalida(state.volumenSalida);
 }
-function enviarAmpParams() {
-  const a = state.amp;
-  bridge.SetAmpParams(a.gain, a.bass, a.mid, a.treble, a.rev, a.dly, a.vol);
-}
-$("btnAmp").onclick = () => {
-  state.ampOn = !state.ampOn;
-  bridge.SetAmpOn(state.ampOn);
-  actualizarBotonAmp();
-};
-function aplicarPresetAmp(nombre) {
-  const p = PRESETS[nombre];
-  if (!p) return;
-  state.preset = nombre;
-  Object.assign(state.amp, p);
-  MANDOS_AMP.forEach(([, key]) => {
-    $("ampR_" + key).value = state.amp[key];
-    $("ampV_" + key).textContent = state.amp[key];
-  });
-  initPresetsAmp();
-  enviarAmpParams();
-}
+$("rangoVolSalida").addEventListener("input", (e) => {
+  state.volumenSalida = Number(e.target.value);
+  $("volSalidaTxt").textContent = state.volumenSalida;
+  enviarVolumenSalida();
+});
 $("btnBajaLatencia").onclick = () => {
   state.bajaLatencia = !state.bajaLatencia;
   bridge.SetBajaLatencia(state.bajaLatencia);
@@ -791,10 +734,38 @@ function notaAcordeActual() {
   const notas = formula.map(iv => NOTAS[(raiz + iv) % 12]);
   return { nombre: state.raizAc + state.tipoAc, notas };
 }
+function diagramaAcordeSVG() {
+  const raiz = NOTAS.indexOf(state.raizAc);
+  const formula = FORMULAS[state.tipoAc] || [0, 4, 7];
+  const notasSet = new Set(formula.map(iv => ((raiz + iv) % 12 + 12) % 12));
+  const cuerdas = [...CUERDAS].reverse(); // grave -> aguda: E A D G B E
+  const xs = [10, 28, 46, 64, 82, 100];
+  const yNut = 20, fretH = 20, maxFret = 4;
+  const posiciones = cuerdas.map(base => {
+    for (let f = 0; f <= maxFret; f++) if (notasSet.has(((base + f) % 12 + 12) % 12)) return f;
+    return -1;
+  });
+  let s = `<svg viewBox="0 0 120 132" width="120" height="132">`;
+  for (let f = 0; f <= maxFret; f++) {
+    const y = yNut + f * fretH;
+    s += `<line x1="${xs[0]}" y1="${y}" x2="${xs[5]}" y2="${y}" stroke="var(--border-strong)" stroke-width="${f === 0 ? 3 : 1}"/>`;
+  }
+  xs.forEach(x => s += `<line x1="${x}" y1="${yNut}" x2="${x}" y2="${yNut + fretH * maxFret}" stroke="var(--border-strong)" stroke-width="1"/>`);
+  posiciones.forEach((f, i) => {
+    const x = xs[i];
+    if (f === -1) s += `<text x="${x}" y="12" text-anchor="middle" font-size="12" fill="var(--text-muted)">×</text>`;
+    else if (f === 0) s += `<circle cx="${x}" cy="12" r="4" fill="none" stroke="var(--text-strong)" stroke-width="1.5"/>`;
+    else s += `<circle cx="${x}" cy="${yNut + (f - 0.5) * fretH}" r="6" fill="var(--accent-primary)"/>`;
+  });
+  s += `</svg>`;
+  return s;
+}
+
 function actualizarAcordeUI() {
   const { nombre, notas } = notaAcordeActual();
   $("nombreAcorde").textContent = nombre;
   $("notasAcordeTxt").textContent = notas.join(" ");
+  $("diagramaAcorde").innerHTML = diagramaAcordeSVG();
   renderSugerencias();
 }
 $("selRaizAc").addEventListener("change", e => { state.raizAc = e.target.value; actualizarAcordeUI(); });
@@ -867,7 +838,15 @@ function snapTiempo(t) { const g = gridSegundos(); return Math.max(0, Math.round
 
 function auditionNota(pitch) {
   ensureBuses();
-  const t = loopCtx.currentTime, o = loopCtx.createOscillator(), g = loopCtx.createGain();
+  const t = loopCtx.currentTime;
+  const muestra = muestraPianoPara(pitch);
+  if (muestra) {
+    const s = loopCtx.createBufferSource(), g = loopCtx.createGain();
+    s.buffer = muestra; g.gain.value = 0.6;
+    s.connect(g); g.connect(masterLoop); s.start(t); s.stop(t + 1.5);
+    return;
+  }
+  const o = loopCtx.createOscillator(), g = loopCtx.createGain();
   o.type = "sawtooth"; o.frequency.value = midiToFreq(pitch, 440);
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(0.25, t + 0.005);
@@ -994,6 +973,65 @@ $("btnLimpiarNotas").onclick = () => {
   renderLanes();
 };
 
+/* ---------- SoundFont de piano real (gratis, MIT) ----------
+   gleitz/midi-js-soundfonts (proyecto estandar y muy usado para esto en
+   el navegador) trae el banco FluidR3_GM ya exportado como muestras MP3
+   individuales en base64, una por semitono ("A0".."C8", con bemoles:
+   Bb, Db, Eb, Gb, Ab). Se descarga on-demand (no se agrega al proyecto
+   para no infiltrar varios MB al repo) y se decodifica en el propio
+   AudioContext de la interfaz. Si no se importa, las pistas MIDI suenan
+   con el sintetizador simple (sawtooth) como hasta ahora. */
+
+const NOTAS_BEMOL = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+function nombreNotaSoundfont(pitch) {
+  const pc = ((pitch % 12) + 12) % 12;
+  const oct = Math.floor(pitch / 12) - 1;
+  return NOTAS_BEMOL[pc] + oct;
+}
+function muestraPianoPara(pitch) {
+  return (state.pianoSamples && state.pianoSamples[nombreNotaSoundfont(pitch)]) || null;
+}
+
+async function cargarSoundfontPiano() {
+  ensureBuses();
+  const btn = $("btnImportarPiano"), estado = $("estadoPiano");
+  btn.disabled = true;
+  estado.textContent = "Descargando soundfont…";
+  try {
+    const url = "https://raw.githubusercontent.com/gleitz/midi-js-soundfonts/master/FluidR3_GM/acoustic_grand_piano-mp3.js";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const texto = await res.text();
+    const idxNombre = texto.indexOf("acoustic_grand_piano");
+    const idxIgual = idxNombre >= 0 ? texto.indexOf("=", idxNombre) : -1;
+    const idxLlave = idxIgual >= 0 ? texto.indexOf("{", idxIgual) : -1;
+    if (idxLlave < 0) throw new Error("formato inesperado del soundfont");
+    let obj = texto.slice(idxLlave).trim().replace(/;\s*$/, "").replace(/,\s*}\s*$/, "}");
+    const mapa = JSON.parse(obj);
+    const entradas = Object.entries(mapa);
+    estado.textContent = "Decodificando " + entradas.length + " muestras…";
+    const buffers = {};
+    let ok = 0;
+    await Promise.all(entradas.map(async ([nombre, dataUri]) => {
+      try {
+        const base64 = dataUri.slice(dataUri.indexOf(",") + 1);
+        const bin = atob(base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        buffers[nombre] = await loopCtx.decodeAudioData(bytes.buffer);
+        ok++;
+      } catch (eNota) { /* se ignora esa muestra puntual, el resto sigue funcionando */ }
+    }));
+    state.pianoSamples = buffers;
+    estado.textContent = ok + " muestras cargadas — las pistas MIDI ya suenan con piano real";
+  } catch (e) {
+    estado.textContent = "No se pudo importar: " + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+$("btnImportarPiano").onclick = cargarSoundfontPiano;
+
 /* =====================================================================
    Arreglo multipista, estilo Logic Pro: cada pista tiene una lista de
    "regiones" (audio) o de notas (MIDI) en vez de un unico buffer. El
@@ -1084,20 +1122,107 @@ function renderLanes() {
     });
 
     if (t.tipo === "midi") {
-      (t.notas || []).forEach(n => {
-        const b = document.createElement("span");
-        b.style.position = "absolute";
-        b.style.left = (n.start * state.pxSeg) + "px";
-        b.style.width = Math.max(2, n.dur * state.pxSeg) + "px";
-        b.style.top = (74 - clamp((n.pitch - 40) * 1.1, 0, 68)) + "px";
-        b.style.height = "3px"; b.style.borderRadius = "1px"; b.style.background = t.color;
-        track.appendChild(b);
-      });
+      renderBloqueMidi(track, t);
     } else {
       (t.regiones || []).forEach(r => renderRegionAudio(track, t, r));
     }
     list.appendChild(lane);
   });
+}
+
+/* ---------- imanes: snapping a la rejilla de compases y a bordes de otras regiones ---------- */
+
+function limitesBloqueMidi(t) {
+  if (!t.notas || !t.notas.length) return null;
+  let inicio = Infinity, fin = -Infinity;
+  t.notas.forEach(n => { inicio = Math.min(inicio, n.start); fin = Math.max(fin, n.start + n.dur); });
+  return { inicio, fin };
+}
+
+function candidatosSnap(excluir) {
+  const cand = [0, state.cursor];
+  const spb = 60 / state.bpm;
+  for (let i = 0; i * spb <= state.duracion + spb; i++) cand.push(i * spb);
+  state.pistas.forEach(t => {
+    if (t.tipo === "audio") {
+      (t.regiones || []).forEach(r => {
+        if (excluir && excluir.tipo === "region" && excluir.id === r.id) return;
+        cand.push(r.offset, r.offset + r.trimDur);
+      });
+    } else {
+      if (excluir && excluir.tipo === "midi" && excluir.trackId === t.id) return;
+      const b = limitesBloqueMidi(t);
+      if (b) cand.push(b.inicio, b.fin);
+    }
+  });
+  return cand;
+}
+
+/// Imanta un tiempo candidato (segundos) al punto mas cercano dentro de un umbral de ~8px.
+function snapConImanes(tSeg, excluir) {
+  const umbral = 8 / state.pxSeg;
+  let mejor = tSeg, mejorDist = umbral;
+  candidatosSnap(excluir).forEach(c => {
+    const d = Math.abs(c - tSeg);
+    if (d < mejorDist) { mejorDist = d; mejor = c; }
+  });
+  return mejor;
+}
+
+function renderBloqueMidi(track, t) {
+  const limites = limitesBloqueMidi(t);
+  if (!limites) return;
+  const key = "midi:" + t.id;
+  const bloque = document.createElement("div");
+  bloque.className = "region midi-region" + (state.regionSeleccionada === key ? " selected" : "");
+  bloque.style.left = (limites.inicio * state.pxSeg) + "px";
+  bloque.style.width = Math.max(4, (limites.fin - limites.inicio) * state.pxSeg) + "px";
+  bloque.style.border = `1px solid ${t.color}`;
+  bloque.style.background = t.color + "22";
+  bloque.innerHTML = `<div class="region-head" style="background:${t.color}55">${t.nombre}</div><div class="midi-notes" style="color:${t.color}"></div>`;
+  const notesBox = bloque.querySelector(".midi-notes");
+  t.notas.forEach(n => {
+    const s = document.createElement("span");
+    s.style.left = ((n.start - limites.inicio) * state.pxSeg) + "px";
+    s.style.width = Math.max(2, n.dur * state.pxSeg) + "px";
+    s.style.top = clamp(20 - (n.pitch - 40) * 0.5, 1, 20) + "px";
+    notesBox.appendChild(s);
+  });
+  bloque.addEventListener("pointerdown", (e) => iniciarArrastreBloqueMidi(e, t, limites, bloque));
+  bloque.addEventListener("dblclick", (e) => { e.stopPropagation(); seleccionarPista(t.id); });
+  track.appendChild(bloque);
+}
+
+function iniciarArrastreBloqueMidi(e, t, limites, el) {
+  e.preventDefault();
+  e.stopPropagation();
+  const x0 = e.clientX, inicio0 = limites.inicio;
+  let movido = false, deltaActual = 0;
+  el.classList.add("dragging-region");
+  const mover = (ev) => {
+    const dx = (ev.clientX - x0) / state.pxSeg;
+    if (Math.abs(dx) > 0.02) movido = true;
+    let nuevoInicio = Math.max(0, inicio0 + dx);
+    nuevoInicio = snapConImanes(nuevoInicio, { tipo: "midi", trackId: t.id });
+    deltaActual = nuevoInicio - inicio0;
+    el.style.left = (nuevoInicio * state.pxSeg) + "px";
+  };
+  const soltar = () => {
+    window.removeEventListener("pointermove", mover);
+    window.removeEventListener("pointerup", soltar);
+    el.classList.remove("dragging-region");
+    if (movido) {
+      t.notas.forEach(n => { n.start = Math.max(0, n.start + deltaActual); });
+      state.duracion = Math.max(state.duracion, limites.fin + deltaActual + 1);
+      if (pianoRollTrack === t) renderPianoRoll(t);
+    } else {
+      const key = "midi:" + t.id;
+      state.regionSeleccionada = state.regionSeleccionada === key ? null : key;
+    }
+    renderLanes();
+  };
+  window.addEventListener("pointermove", mover);
+  window.addEventListener("pointerup", soltar);
 }
 
 function renderRegionAudio(track, t, r) {
@@ -1255,7 +1380,9 @@ function iniciarArrastreRegion(e, t, r, el) {
   const mover = (ev) => {
     const dx = (ev.clientX - x0) / state.pxSeg;
     if (Math.abs(dx) > 0.02) movido = true;
-    r.offset = Math.max(0, offset0 + dx);
+    let nuevoOffset = Math.max(0, offset0 + dx);
+    nuevoOffset = snapConImanes(nuevoOffset, { tipo: "region", id: r.id });
+    r.offset = nuevoOffset;
     el.style.left = (r.offset * state.pxSeg) + "px";
   };
   const soltar = () => {
@@ -1308,7 +1435,13 @@ document.addEventListener("keydown", (e) => {
     transportToggle();
   } else if ((e.key === "Delete" || e.key === "Backspace") && !enCampo && state.regionSeleccionada) {
     e.preventDefault();
-    state.pistas.forEach(t => { t.regiones = (t.regiones || []).filter(r => r.id !== state.regionSeleccionada); });
+    if (typeof state.regionSeleccionada === "string" && state.regionSeleccionada.startsWith("midi:")) {
+      const t = state.pistas.find(x => x.id === state.regionSeleccionada.slice(5));
+      if (t) t.notas = [];
+      if (pianoRollTrack === t) renderPianoRoll(t);
+    } else {
+      state.pistas.forEach(t => { t.regiones = (t.regiones || []).filter(r => r.id !== state.regionSeleccionada); });
+    }
     state.regionSeleccionada = null;
     renderLanes();
   }
@@ -1332,6 +1465,18 @@ function detenerPistas() {
 
 function dispararNotaMidi(t, pitch, when, dur, vel) {
   if (dur <= 0) return;
+  const muestra = muestraPianoPara(pitch);
+  if (muestra) {
+    const s = loopCtx.createBufferSource(), g = loopCtx.createGain();
+    s.buffer = muestra;
+    const peak = (vel || 100) / 127;
+    g.gain.setValueAtTime(peak, when);
+    g.gain.setTargetAtTime(0.0001, when + dur, 0.12); // suelta suave al terminar la nota, deja resonar el piano
+    s.connect(g); g.connect(t.gainNode || loopGain);
+    s.start(when); s.stop(when + dur + 1.5);
+    fuentesActivas.push(s);
+    return;
+  }
   const c = loopCtx, o = c.createOscillator(), g = c.createGain();
   o.type = "sawtooth"; o.frequency.value = midiToFreq(pitch, 440);
   const peak = 0.26 * ((vel || 100) / 127);
@@ -1466,9 +1611,20 @@ $("btnExportar").onclick = async () => {
       });
     } else {
       (t.notas || []).forEach(n => {
+        const when = n.start;
+        const muestra = muestraPianoPara(n.pitch);
+        if (muestra) {
+          const s = off.createBufferSource(), ng = off.createGain();
+          s.buffer = muestra;
+          const peak = (n.vel || 100) / 127;
+          ng.gain.setValueAtTime(peak, when);
+          ng.gain.setTargetAtTime(0.0001, when + n.dur, 0.12);
+          s.connect(ng); ng.connect(g); s.start(when);
+          return;
+        }
         const o = off.createOscillator(), ng = off.createGain();
         o.type = "sawtooth"; o.frequency.value = midiToFreq(n.pitch, 440);
-        const peak = 0.26 * ((n.vel || 100) / 127), when = n.start;
+        const peak = 0.26 * ((n.vel || 100) / 127);
         ng.gain.setValueAtTime(0.0001, when);
         ng.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), when + 0.008);
         ng.gain.exponentialRampToValueAtTime(0.0001, when + Math.max(0.03, n.dur));
@@ -1516,7 +1672,7 @@ function actualizarCursorUI() {
   $("playhead").style.left = (state.cursor * state.pxSeg) + "px";
   $("infoLoop").textContent = fmtTime(state.cursor) + " / " + fmtTime(state.duracion);
   const ph = $("pianorollPlayhead");
-  if (ph) ph.style.left = (176 + state.cursor * state.pxSeg) + "px";
+  if (ph) ph.style.left = (state.cursor * state.pxSeg) + "px";
 }
 
 /* =====================================================================
@@ -1581,9 +1737,9 @@ function onMidiMessage(msg) {
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
     o.connect(g); g.connect(masterLoop); o.start(t); o.stop(t + 0.65);
   } else if (cmd === 0xb0 && d1 === 7) {
-    state.amp.vol = Math.round((d2 / 127) * 100);
-    $("ampR_vol").value = state.amp.vol; $("ampV_vol").textContent = state.amp.vol;
-    enviarAmpParams();
+    state.volumenSalida = Math.round((d2 / 127) * 100);
+    $("rangoVolSalida").value = state.volumenSalida; $("volSalidaTxt").textContent = state.volumenSalida;
+    enviarVolumenSalida();
   } else if (cmd === 0xfa) { // start
     transportPlay();
   } else if (cmd === 0xfc) { // stop
@@ -1668,13 +1824,11 @@ function init() {
   initPulsos();
   initMeterBars();
   initCatalogoPedales();
-  initPresetsAmp();
-  initMandosAmp();
   initEjesEspectro();
   initMuestras();
   actualizarBpmUI();
   actualizarBadgeEntrada();
-  actualizarBotonAmp();
+  enviarVolumenSalida();
   actualizarAcordeUI();
   actualizarSecuenciaUI();
   renderDiapason();

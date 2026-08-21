@@ -16,12 +16,12 @@ public sealed class SignalChain
     private readonly Dictionary<string, Pedal> _pedales = new();
     private readonly List<string> _orden = new();
 
-    public AmpSimulator Amp { get; }
+    public OutputStage Salida { get; }
 
     public SignalChain(int sampleRate)
     {
         _sampleRate = sampleRate;
-        Amp = new AmpSimulator(sampleRate);
+        Salida = new OutputStage();
     }
 
     public Pedal AddPedal(string id, string tipo)
@@ -71,6 +71,6 @@ public sealed class SignalChain
         foreach (var id in _orden)
             if (_pedales.TryGetValue(id, out var p))
                 signal = p.Process(signal);
-        return Amp.Process(signal);
+        return Salida.Process(signal);
     }
 }

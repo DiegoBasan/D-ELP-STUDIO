@@ -40,8 +40,8 @@ EstudioGuitarra/
       Lfo.cs, DelayLine.cs, WaveShaper.cs, Compressor.cs, SchroederReverb.cs
       Pedal.cs                   los 12 tipos de pedal (comp/boost/od/dist/fuzz/
                                   eq/wah/chorus/phaser/trem/delay/reverb)
-      AmpSimulator.cs             simulador de amplificador (drive+EQ+cabina+FX)
-      SignalChain.cs               encadena pedales + ampli en orden
+      OutputStage.cs               etapa de salida: solo volumen (el tono lo dan los pedales)
+      SignalChain.cs               encadena pedales + salida en orden
   Interop/
     AudioBridge.cs               objeto host expuesto a JS (chrome.webview.hostObjects.audio)
   wwwroot/
@@ -138,11 +138,10 @@ EstudioGuitarra/
   programada, no una señal que reacciona a lo que tocas en el instante).
   Corren en un `AudioContext` independiente del motor en C#, y ambos suenan
   a la vez por la salida de Windows sin conflicto.
-- Si cambias de dispositivo de entrada/salida, hay métodos ya expuestos en el
-  bridge (`ListarEntradas`, `ListarSalidas`, `Conectar(id, id)`) para añadir un
-  selector de dispositivo en la interfaz cuando haga falta; hoy se conecta
-  siempre al dispositivo por defecto del sistema, igual que el original pedía
-  permiso de micrófono por defecto del navegador.
+- Los selectores de dispositivo de entrada/salida del header llaman a
+  `bridge.ListarEntradas()`/`ListarSalidas()` para poblarse y a
+  `bridge.Conectar(inputId, outputId)` al pulsar «Conectar entrada»
+  (`null`/vacío = dispositivo por defecto del sistema).
 
 ## Ajustar la latencia
 
@@ -156,3 +155,40 @@ Si tu tarjeta de sonido tiene drivers ASIO, se puede sustituir `WasapiCapture`/
 `WasapiOut` en `AudioEngine.cs` por `AsioOut` (NAudio ya lo trae) para bajar
 aún más la latencia (~2-5 ms); se dejó fuera de esta primera versión porque
 no todas las tarjetas integradas traen drivers ASIO.
+
+## Cambios recientes
+
+- **Amplificador simplificado**: ya no simula drive/EQ/cabina/delay/reverb
+  (eso duplicaba lo que hacen los pedales de la pedalera y hacía parecer que
+  el widget "no estaba conectado a nada"). `OutputStage.cs` ahora es solo una
+  ganancia de salida; el widget "Amplificador" quedó como un fader de
+  Volumen. Esto también arregló el espectrograma: antes la cadena completa
+  daba silencio hasta encender el amplificador, así que no había nada que
+  graficar.
+- **Fix de CSS**: el canvas del espectrograma no tenía `width`/`height`
+  forzados al 100% del contenedor, así que se quedaba con el tamaño por
+  defecto de un `<canvas>` (300×150) en vez de ocupar el panel. También le
+  faltaba `min-height:0` a la columna central del layout, lo que hacía que
+  el panel inferior se comprimiera en vez de que la lista de pistas
+  scrolleara internamente al crecer.
+- **Fix del playhead en el piano roll**: tenía un offset de 176px copiado
+  por error del timeline principal (que sí lo necesita por su columna de
+  cabecera); en el piano roll no aplica y lo desincronizaba.
+- **Pistas MIDI arrastrables + snapping magnético**: una pista MIDI ahora se
+  ve y se arrastra en el arreglo como un bloque (todas sus notas se mueven
+  juntas). Arrastrar una región de audio o un bloque MIDI imanta el borde a
+  la rejilla de compases o al borde de otra región/bloque cercano (~8px).
+- **SoundFont de piano real**: botón «Importar piano real (SoundFont)» en
+  la pestaña Teclado MIDI descarga `FluidR3_GM/acoustic_grand_piano` del
+  proyecto `gleitz/midi-js-soundfonts` (MIT, gratis, 88 muestras MP3 en
+  base64, notación A0..C8 con bemoles Bb/Db/Eb/Gb/Ab) y decodifica las
+  muestras en el propio `AudioContext`. Mientras no se importa, las pistas
+  MIDI suenan con un sintetizador sawtooth simple.
+- **Diagrama de acorde**: la tarjeta Acordes dibuja un diapasón pequeño
+  (6 cuerdas × 4 trastes) con el traste más bajo que contiene cada nota del
+  acorde por cuerda. Como el buscador de acordes es genérico (cualquier
+  raíz × carácter × extensión, no una tabla curada de formas como el
+  original), es una digitación calculada, no necesariamente la más habitual
+  para tocar.
+- **Pistas más compactas**: se redujo la altura de cada fila (~76px → 40px)
+  y el padding de la cabecera para ver más pistas a la vez sin scrollear.
