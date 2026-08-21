@@ -50,6 +50,8 @@
         <div class="label">Latencia</div>
         <div class="val" id="latenciaTxt">&mdash;</div>
       </div>
+      <select class="device-select" id="selDispositivoEntrada" title="Dispositivo de entrada"></select>
+      <select class="device-select" id="selDispositivoSalida" title="Dispositivo de salida"></select>
       <span class="badge" id="badgeEntrada"><span class="dot"></span><span id="badgeEntradaTxt">sin conectar</span></span>
       <button class="btn primary sm" id="btnConectar">Conectar entrada</button>
     </div>
@@ -150,7 +152,8 @@
           <span style="font-family:var(--font-mono);color:var(--text-body)"><span id="latenciaCompTxt">60</span> ms</span>
         </label>
         <span class="info" id="cursorTxt">0:00.0</span>
-        <button class="btn primary sm" id="btnNuevaPista">+ Pista</button>
+        <button class="btn primary sm" id="btnNuevaPista">+ Pista audio</button>
+        <button class="btn sm" id="btnNuevaPistaMidi">+ Pista MIDI</button>
         <button class="btn sm" id="btnMedirLatencia">Medir latencia</button>
         <button class="btn tertiary sm" id="btnVaciarLoop">Vaciar</button>
         <div class="zoom-group">
@@ -191,6 +194,7 @@
           <div class="tab-group" id="panelTabs">
             <button data-tab="analizador" class="on">Analizador</button>
             <button data-tab="pedalera">Pedalera</button>
+            <button data-tab="midi">Teclado MIDI</button>
             <button data-tab="diapason">Diapasón</button>
             <button data-tab="video">Video</button>
           </div>
@@ -215,6 +219,29 @@
             <div class="catalogo" id="catalogoPedales"></div>
             <div class="combos" id="combosPedales"></div>
             <div class="chain-rack" id="chainRack"></div>
+          </div>
+
+          <div class="panel-view" id="viewMidi">
+            <div class="midi-toolbar">
+              <span class="info" id="midiPistaTxt">Selecciona una pista MIDI en el arreglo para editarla aquí</span>
+              <div class="spacer"></div>
+              <label class="info" style="display:flex;align-items:center;gap:6px">Rejilla
+                <select id="selMidiGrid">
+                  <option value="1">Negra</option>
+                  <option value="0.5" selected>Corchea</option>
+                  <option value="0.25">Semicorchea</option>
+                </select>
+              </label>
+              <button class="btn tertiary sm" id="btnLimpiarNotas">Vaciar notas</button>
+            </div>
+            <div class="pianoroll-scroll" id="pianorollScroll">
+              <div class="pianoroll-inner" id="pianorollInner">
+                <div class="piano-keys" id="pianoKeys"></div>
+                <div class="pianoroll-grid" id="pianorollGrid">
+                  <div class="pianoroll-playhead" id="pianorollPlayhead"></div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="panel-view" id="viewDiapason">

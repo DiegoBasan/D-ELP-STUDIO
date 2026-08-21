@@ -85,6 +85,33 @@ EstudioGuitarra/
 5. Activa el **amplificador** y añade pedales desde la pestaña **Pedalera**
    del panel inferior: todo lo que ajustes ahí (perillas, presets, combos,
    orden de la cadena) se envía en tiempo real al motor en C#.
+6. Los selectores junto a «Conectar entrada» eligen dispositivo de entrada
+   y salida (o «por defecto» para dejar que el sistema decida).
+
+## Arreglo multipista (estilo Logic Pro)
+
+- **Pistas de audio**: cada grabación/importación se agrega como una
+  **región** independiente (no se sobrescribe lo anterior). Arrastra una
+  región para moverla en el tiempo, tira de sus bordes para recortarla
+  (trim no destructivo, no borra audio del buffer original) y usa el botón
+  **«Cortar»** de la pista para partirla en dos en la posición del cursor.
+  Click en una región la selecciona (Suprimir/Backspace la borra); click
+  en la regla o en una pista vacía mueve el cursor.
+- **Enter** reproduce/pausa desde la posición del cursor (como la barra
+  espaciadora en un DAW); el botón «Reproducir» hace lo mismo. El cursor
+  avanza usando el reloj del `AudioContext`, no un `setInterval`, así que
+  no se desincroniza con lo que realmente suena.
+- **Pistas MIDI** (botón «+ Pista MIDI»): en vez de regiones tienen notas
+  individuales, editables en la pestaña **«Teclado MIDI»** del panel
+  inferior — se activa sola al seleccionar una pista MIDI (o con su botón
+  «Ed»). Click en la rejilla agrega una nota (con el teclado de piano de
+  la izquierda puedes tocarla primero para escuchar el tono); arrastra una
+  nota para moverla/cambiar su tono, tira de su borde derecho para cambiar
+  la duración, doble click la borra. La rejilla de fracción de tiempo
+  (negra/corchea/semicorchea) controla el "snap".
+  *Nota de alcance*: cortar/mover como "región" es un concepto de pista de
+  audio; en las pistas MIDI la edición equivalente es mover/recortar notas
+  individuales en el piano roll.
 
 ## Notas de diseño / diferencias respecto al original
 
