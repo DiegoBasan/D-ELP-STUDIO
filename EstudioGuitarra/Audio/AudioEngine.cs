@@ -45,6 +45,12 @@ public sealed class AudioEngine : IDisposable
     public bool IsConnected => _capture != null;
     public double A4 { get; set; } = 440;
 
+    /// <summary>"exclusivo" (WASAPI toma el dispositivo por su cuenta, la latencia real de
+    /// ida y vuelta suele quedar en unos pocos milisegundos) o "compartido" (pasa por el
+    /// mezclador de Windows, mas compatible pero con mas latencia real de la que sugieren
+    /// los tamaños de buffer). Util para que la interfaz le diga al usuario cual se logro.</summary>
+    public string ModoConexion { get; private set; } = "sin conectar";
+
     // ---------- dispositivos ----------
 
     public IReadOnlyList<DeviceInfo> ListCaptureDevices()
@@ -87,12 +93,44 @@ public sealed class AudioEngine : IDisposable
         _renderDevice = renderDevice;
         _captureDeviceId = captureDevice.ID;
         _renderDeviceId = renderDevice.ID;
-        _captureBufferMs = _bajaLatencia ? 6 : 20;
-        _outputLatencyMs = _bajaLatencia ? 10 : 30;
+
+        // Primero se intenta modo exclusivo (WASAPI le entrega el dispositivo entero a esta app,
+        // sin pasar por el mezclador/motor de audio compartido de Windows: ahi es donde suele
+        // esconderse la latencia real que no se ve en los tamaños de buffer que pedimos). Si el
+        // hardware/driver no lo soporta (pasa con algunos Bluetooth, USB compuestos o políticas
+        // de empresa), se cae automaticamente a modo compartido, que es lo que ya funcionaba.
+        if (_bajaLatencia && TryConectar(captureDevice, renderDevice, exclusivo: true))
+        {
+            ModoConexion = "exclusivo";
+            return true;
+        }
+        if (TryConectar(captureDevice, renderDevice, exclusivo: false))
+        {
+            ModoConexion = "compartido";
+            return true;
+        }
+        ModoConexion = "sin conectar";
+        return false;
+    }
+
+    private bool TryConectar(MMDevice captureDevice, MMDevice renderDevice, bool exclusivo)
+    {
+        _captureBufferMs = exclusivo ? 3 : (_bajaLatencia ? 6 : 20);
+        _outputLatencyMs = exclusivo ? 3 : (_bajaLatencia ? 10 : 30);
 
         try
         {
             _capture = new WasapiCapture(captureDevice, true, _captureBufferMs);
+            if (exclusivo)
+            {
+                // En modo exclusivo el driver casi nunca acepta el formato float del mezclador
+                // compartido; se pide PCM entero a la misma frecuencia/canales que ya usa el
+                // dispositivo, que es el formato "nativo" que casi todo hardware acepta.
+                var mix = captureDevice.AudioClient.MixFormat;
+                _capture.ShareMode = AudioClientShareMode.Exclusive;
+                _capture.WaveFormat = new WaveFormat(mix.SampleRate, 16, Math.Max(1, mix.Channels));
+            }
+
             _sampleRate = _capture.WaveFormat.SampleRate;
             _outChannels = Math.Max(1, renderDevice.AudioClient.MixFormat.Channels);
 
@@ -110,7 +148,9 @@ public sealed class AudioEngine : IDisposable
                 BufferDuration = TimeSpan.FromMilliseconds(Math.Max(200, _outputLatencyMs * 6))
             };
 
-            _output = new WasapiOut(renderDevice, AudioClientShareMode.Shared, true, _outputLatencyMs);
+            // WasapiOut ya sabe negociar el formato/alineacion de buffer en modo exclusivo y
+            // convertir sobre la marcha si hace falta, asi que aqui no hay que adivinar nada.
+            _output = new WasapiOut(renderDevice, exclusivo ? AudioClientShareMode.Exclusive : AudioClientShareMode.Shared, true, _outputLatencyMs);
             _output.Init(_outputBuffer);
 
             _capture.DataAvailable += OnDataAvailable;
@@ -120,7 +160,7 @@ public sealed class AudioEngine : IDisposable
         }
         catch
         {
-            Disconnect();
+            LimpiarRecursos();
             return false;
         }
     }
@@ -135,6 +175,13 @@ public sealed class AudioEngine : IDisposable
 
     public void Disconnect()
     {
+        LimpiarRecursos();
+        ModoConexion = "sin conectar";
+        StopRecordingInternal();
+    }
+
+    private void LimpiarRecursos()
+    {
         try { _capture?.StopRecording(); } catch { /* ya detenido */ }
         if (_capture != null) _capture.DataAvailable -= OnDataAvailable;
         _capture?.Dispose();
@@ -144,8 +191,6 @@ public sealed class AudioEngine : IDisposable
         _output?.Dispose();
         _output = null;
         _outputBuffer = null;
-
-        StopRecordingInternal();
     }
 
     public double EstimatedLatencyMs => IsConnected ? _captureBufferMs + _outputLatencyMs : 0;

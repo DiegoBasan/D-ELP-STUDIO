@@ -11,11 +11,14 @@ Cada una de esas capas añade latencia, y en Chrome esa cadena típicamente rond
 40-100+ ms — perceptible al tocar en vivo con pedalera/ampli simulado.
 
 Aquí la cadena en vivo (**entrada de guitarra → pedalera → amplificador → salida**)
-se procesa **enteramente en C#**, muestra a muestra, usando NAudio sobre WASAPI en
-modo compartido, y nunca toca el motor de renderizado del navegador. El resultado
-es una latencia de ida y vuelta de aproximadamente **15-25 ms** (configurable),
-muy por debajo de lo que se conseguía en Chrome, sin depender de hardware con
-drivers ASIO.
+se procesa **enteramente en C#**, muestra a muestra, usando NAudio sobre WASAPI, y
+nunca toca el motor de renderizado del navegador. Con «Baja latencia» activada el
+motor intenta primero **modo exclusivo** (WASAPI toma el dispositivo directo, sin
+pasar por el mezclador de Windows) y solo si el hardware/driver no lo soporta cae
+automáticamente a modo compartido. En exclusivo la latencia real de ida y vuelta
+suele quedar en **~6-10 ms** (prácticamente imperceptible al tocar); en
+compartido, en **15-25 ms**. Ambos muy por debajo de lo que se conseguía en
+Chrome, sin depender de hardware con drivers ASIO.
 
 El resto de la aplicación (interfaz, metrónomo, banda de acompañamiento, looper
 multipista, diapasón, acordes, YouTube) sigue siendo HTML/CSS/JS estándar,
@@ -131,7 +134,10 @@ EstudioGuitarra/
 - **Latencia mostrada**: es la latencia de la tubería configurada en NAudio
   (tamaño de buffer de captura + de render), no una medición acústica de
   ida y vuelta con micrófono como hacía el original. Es un número honesto y
-  siempre disponible; con "Baja latencia" activada debería rondar 15-25 ms.
+  siempre disponible. Junto al número se muestra el modo real logrado —
+  **"(exclusivo)"** o **"(compartido)"** — con un tooltip explicando la
+  diferencia; con "Baja latencia" activada y modo exclusivo debería rondar
+  6-10 ms, en compartido 15-25 ms.
 - **Banda de acompañamiento, metrónomo, looper, diapasón, acordes, MIDI y
   YouTube** siguen en JavaScript/Web Audio dentro del WebView2, porque no
   necesitan latencia de monitorización en tiempo real (son reproducción
@@ -147,9 +153,23 @@ EstudioGuitarra/
 
 El botón **«Baja latencia»** (tarjeta Amplificador) alterna entre:
 
-- **Activada**: buffer de captura ~6 ms + render ~10 ms.
-- **Desactivada**: buffer de captura ~20 ms + render ~30 ms (más estable en
-  equipos con CPU limitada o interfaces de audio menos precisas).
+- **Activada**: intenta **modo exclusivo** primero (buffer ~3 ms captura +
+  ~3 ms render, WASAPI le entrega el dispositivo entero a esta app sin pasar
+  por el mezclador de Windows — ahí es donde se escondía la latencia extra
+  que no bajaba aunque el buffer configurado fuera pequeño). Si el
+  dispositivo/driver elegido no soporta exclusivo (pasa con algo de hardware
+  Bluetooth, USB compuesto o políticas de empresa), cae automáticamente a
+  compartido con buffers de ~6 ms captura + ~10 ms render.
+- **Desactivada**: siempre modo compartido, buffer de captura ~20 ms +
+  render ~30 ms (más estable en equipos con CPU limitada o interfaces de
+  audio menos precisas).
+
+**Importante sobre modo exclusivo**: mientras la app está conectada en este
+modo, el dispositivo de entrada/salida elegido queda reservado solo para
+Estudio de Guitarra — ningún otro programa (Discord, Teams, un navegador,
+etc.) puede usar ese mismo micrófono/altavoz al mismo tiempo. Al desconectar
+o cerrar la app el dispositivo queda libre de nuevo. El indicador de
+Latencia en la cabecera muestra qué modo se logró realmente.
 
 Si tu tarjeta de sonido tiene drivers ASIO, se puede sustituir `WasapiCapture`/
 `WasapiOut` en `AudioEngine.cs` por `AsioOut` (NAudio ya lo trae) para bajar
@@ -192,3 +212,16 @@ no todas las tarjetas integradas traen drivers ASIO.
   para tocar.
 - **Pistas más compactas**: se redujo la altura de cada fila (~76px → 40px)
   y el padding de la cabecera para ver más pistas a la vez sin scrollear.
+- **Fix de crash en el delay** (`DelayLine.Read()`): con el delay/chorus/phaser
+  modulando el tiempo de retardo en tiempo real, el redondeo de punto
+  flotante podía dejar el índice de lectura justo en el borde del buffer y
+  lanzar `IndexOutOfRangeException`. Se recorta explícitamente el índice y la
+  fracción de interpolación.
+- **Modo exclusivo WASAPI para bajar la latencia real**: con «Baja latencia»
+  activada, el motor ahora intenta primero modo exclusivo (bypassa el
+  mezclador de Windows, que es donde se escondía latencia real aunque el
+  buffer configurado fuera pequeño) y cae a modo compartido automáticamente
+  si el dispositivo no lo soporta. El indicador de Latencia muestra qué modo
+  se logró. Ver la sección "Ajustar la latencia" para el detalle y el
+  trade-off (el dispositivo queda reservado para esta app mientras dure la
+  conexión en modo exclusivo).

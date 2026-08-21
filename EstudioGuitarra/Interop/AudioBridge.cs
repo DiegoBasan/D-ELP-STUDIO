@@ -45,6 +45,10 @@ public sealed class AudioBridge
 
     public double LatenciaMs() => _engine.EstimatedLatencyMs;
 
+    /// <summary>"exclusivo" (WASAPI toma el dispositivo entero, minima latencia real) o
+    /// "compartido" (pasa por el mezclador de Windows, latencia extra oculta) o "sin conectar".</summary>
+    public string ModoConexion() => _engine.ModoConexion;
+
     public void SetBajaLatencia(bool activo) => _engine.SetBajaLatencia(activo);
 
     public void SetA4(double hz) => _engine.A4 = hz;

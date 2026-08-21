@@ -20,6 +20,7 @@ const bridgeStub = {
   Desconectar: async () => {},
   EstaConectado: async () => false,
   LatenciaMs: async () => 0,
+  ModoConexion: async () => "sin conectar",
   SetBajaLatencia: async () => {},
   SetA4: async () => {},
   SetVolumenSalida: async () => {},
@@ -337,10 +338,21 @@ function actualizarBadgeEntrada() {
 
 async function pollEstadoEntrada() {
   try {
-    const [conectado, latencia] = await Promise.all([bridge.EstaConectado(), bridge.LatenciaMs()]);
+    const [conectado, latencia, modo] = await Promise.all([
+      bridge.EstaConectado(), bridge.LatenciaMs(), bridge.ModoConexion()
+    ]);
     state.conectado = !!conectado;
     actualizarBadgeEntrada();
-    $("latenciaTxt").textContent = state.conectado ? Math.round(latencia) + " ms" : "—";
+    if (state.conectado) {
+      const etiquetaModo = modo === "exclusivo" ? "exclusivo" : "compartido";
+      $("latenciaTxt").textContent = `${Math.round(latencia)} ms (${etiquetaModo})`;
+      $("latenciaTxt").title = modo === "exclusivo"
+        ? "Modo exclusivo: WASAPI toma el dispositivo directo, latencia real minima. Ningun otro programa puede usar este mismo dispositivo mientras este conectado."
+        : "Modo compartido: pasa por el mezclador de Windows (mas compatible, pero con mas latencia real de la que indica este numero). El dispositivo elegido no soporto modo exclusivo.";
+    } else {
+      $("latenciaTxt").textContent = "—";
+      $("latenciaTxt").title = "";
+    }
   } catch (e) { /* motor no disponible todavia */ }
 }
 
